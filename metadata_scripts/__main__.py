@@ -571,6 +571,7 @@ def save_patient_metadata_to_excel(patient_index, patients_data, pathology_analy
             'CEA': str(pathology_json_data.get('CEA', 'None')),
             'METADATA': combine_genetic_metadata(pathology_json_data.get('genetic_metadata', 'None'),
                                                  medical_texts_json_data.get('genetic_metadata', 'None')),
+            'COMMENTS': pathology_json_data.get('comments', ''),
             'LLM OUTPUT': f"{pathology_free_text_summary} \n {str(pathology_json_data)} \n "
                           f"{medical_texts_free_text_summary} \n {str(medical_texts_json_data)}"
         }
@@ -610,7 +611,7 @@ def save_other_cancer_data_to_excel(patient_index, patients_data, pathology_anal
         'METASTASES', 'TUMOR STAGE/GRADE', 'PTNM/PTMN', 'TREATMENTS PREVIOUS TO SAMPLE ARRIVAL',
         'TREATMENTS POST TO SAMPLE ARRIVAL', 'STAINED FOR', 'IMMUNOSTAINING RESULTS',
         'IMMUNISTAININGS FOR MMR', 'TISSUES EXAMINED/STAINED', 'PDL1', 'TUMOR BURDEN TMB', '% CANCER CELLS', 'CEA',
-        'METADATA', 'LLM OUTPUT', 'COMMENT'
+        'METADATA', 'COMMENTS', 'LLM OUTPUT'
     ]
 
     # List to hold all rows of data
@@ -657,6 +658,7 @@ def save_other_cancer_data_to_excel(patient_index, patients_data, pathology_anal
                 '% CANCER CELLS': pathology_json_data.get('percentage_of_cancer_cells_stained_for_PDL1', 'None'),
                 'CEA': pathology_json_data.get('CEA', 'None'),
                 'METADATA': format_data(pathology_json_data.get('genetic_metadata', 'None')),
+                'COMMENTS': pathology_json_data.get('comments', ''),
                 'LLM OUTPUT': f"{pathology_free_text_summary}\n{pathology_json_data}"
             }
 

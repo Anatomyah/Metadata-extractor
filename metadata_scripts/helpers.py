@@ -21,12 +21,17 @@ def clean_keys(data_dict):
     return cleaned_dict
 
 
-def get_file_path(file_name: str):
+def get_file_path(file_name: str, pdf):
     # Get the current script directory
     script_dir = os.path.dirname(__file__)
 
+    file_format = 'xlsx'
+
+    if pdf:
+        file_format = 'pdf'
+
     # Construct the path to the file in the 'data' folder
-    file_path = os.path.join(script_dir, '..', 'data', f'{file_name}.xlsx')
+    file_path = os.path.join(script_dir, '..', 'data', f'{file_name}.{file_format}')
 
     # Normalize the path (optional)
     return os.path.abspath(file_path)

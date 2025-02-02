@@ -3,14 +3,15 @@ import time
 import pandas as pd
 
 from metadata_scripts.helpers import clean_text_with_actual_newlines
-from metadata_scripts.helpers import get_file_path, fix_invalid_dates
+from metadata_scripts.helpers import get_file_path
 from metadata_scripts.openai_api import analyze_pathology_report, combine_batched_analyses
 
 
 def load_and_prepare_pathology_data(pathology_file_path, ids_file_path, other_cancers_analysis):
     """
-    Load the pathology report and IDs files, prepare the data by filtering based on procedure dates,
-    and return the filtered DataFrame.
+    Load the pathology report and IDs files, filter by date range to acquire OWNER_REFs,
+    then filter the entire DataFrame by those OWNER_REFs.
+    Return the filtered DataFrame.
     """
 
     # Load pathology report data
@@ -19,29 +20,9 @@ def load_and_prepare_pathology_data(pathology_file_path, ids_file_path, other_ca
     # Load IDs file with procedure dates
     ids_df = pd.read_excel(get_file_path(ids_file_path), dtype={'ID_BAZNAT': str}, header=0)
 
-    # Step 1: Clean PROCEDURE_DATE column
-    # Trim extra spaces and ensure consistency in delimiters
+    # Clean PROCEDURE_DATE column and convert to datetime
     ids_df['PROCEDURE_DATE'] = ids_df['PROCEDURE_DATE'].str.strip().str.replace(r'[^\d.]', '.', regex=True)
-
-    # Step 2: Identify invalid dates based on length (e.g., "31.10.22" is 8 characters long)
-    invalid_dates = ids_df[~ids_df['PROCEDURE_DATE'].str.match(r'^\d{1,2}\.\d{1,2}\.\d{2}$', na=False)]
-    if not invalid_dates.empty:
-        print("Invalid PROCEDURE_DATE values before fixing:\n", invalid_dates)
-
-    if not invalid_dates.empty:
-        # Step 3: Manually fix invalid dates if any
-        ids_df['PROCEDURE_DATE'] = ids_df['PROCEDURE_DATE'].apply(fix_invalid_dates)
-
-    # Step 4: Convert PROCEDURE_DATE column to datetime after cleaning
-    try:
-        ids_df['PROCEDURE_DATE'] = pd.to_datetime(ids_df['PROCEDURE_DATE'], format='%d.%m.%y', errors='raise')
-    except ValueError as e:
-        print(f"Error during date conversion: {e}")
-
-    # Step 5: Recheck for invalid dates after conversion
-    invalid_dates_after_conversion = ids_df[ids_df['PROCEDURE_DATE'].isna()]
-    if not invalid_dates_after_conversion.empty:
-        print("Rows with invalid PROCEDURE_DATE after conversion:\n", invalid_dates_after_conversion)
+    ids_df['PROCEDURE_DATE'] = pd.to_datetime(ids_df['PROCEDURE_DATE'], format='%d.%m.%y', errors='coerce')
 
     # Convert LAB_TEST_DATE in pathology data to datetime
     pathology_df['LAB_TEST_DATE'] = pd.to_datetime(pathology_df['LAB_TEST_DATE'], errors='coerce')
@@ -53,17 +34,21 @@ def load_and_prepare_pathology_data(pathology_file_path, ids_file_path, other_ca
     merged_df['min_date'] = merged_df['PROCEDURE_DATE'] - pd.Timedelta(days=2)
     merged_df['max_date'] = merged_df['PROCEDURE_DATE'] + pd.Timedelta(days=2)
 
-    # Filter based on the date range
+    # Step 1: Apply the date range filter to acquire OWNER_REFs within the date range
     if other_cancers_analysis:
-        # Keep data prior to the in date and after the max date
-        filtered_df = merged_df[(merged_df['LAB_TEST_DATE'] < merged_df['min_date']) |
-                                (merged_df['LAB_TEST_DATE'] > merged_df['max_date'])]
+        date_filtered_df = merged_df[(merged_df['LAB_TEST_DATE'] < merged_df['min_date']) |
+                                     (merged_df['LAB_TEST_DATE'] > merged_df['max_date'])]
     else:
-        # Keep data within the defined min and max dates
-        filtered_df = merged_df[(merged_df['LAB_TEST_DATE'] >= merged_df['min_date']) &
-                                (merged_df['LAB_TEST_DATE'] <= merged_df['max_date'])]
+        date_filtered_df = merged_df[(merged_df['LAB_TEST_DATE'] >= merged_df['min_date']) &
+                                     (merged_df['LAB_TEST_DATE'] <= merged_df['max_date'])]
 
-    return filtered_df
+    # Step 2: Get unique OWNER_REF values from the date-filtered DataFrame
+    owner_refs_to_include = date_filtered_df['OWNER_REF'].unique()
+
+    # Step 3: Filter the entire merged_df by these OWNER_REF values
+    final_filtered_df = merged_df[merged_df['OWNER_REF'].isin(owner_refs_to_include)]
+
+    return final_filtered_df
 
 
 def clean_pathology_data(pathology_data_dict):
